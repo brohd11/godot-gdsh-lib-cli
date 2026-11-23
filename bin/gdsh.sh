@@ -6,9 +6,27 @@ set -o pipefail
 gdsh_home=${GDSH_HOME:-$HOME/.gdsh}
 cli=$gdsh_home/cli
 registry=$gdsh_home/executables
-usage="Usage: gdsh '<line>' | gdsh -f <file.gdsh> | gdsh --register [<godot>...]"
+usage="Usage: gdsh '<line>' | gdsh -f <file.gdsh> | gdsh --register [<godot>...] | gdsh --version | gdsh --help"
+help="Usage: gdsh '<line>'                 run a gdsh line in the enclosing Godot project
+       gdsh -f <file.gdsh>           run a gdsh script (starts with #!gdsh)
+       gdsh --register [<godot>...]  record Godot binaries in ~/.gdsh/executables
+       gdsh --version | --help
+
+The line is gdsh syntax, as in the Editor Console, not bash: quote it so your shell
+passes it whole. Blocks use braces:
+  gdsh 'for f in \$(ls res://) { echo \"file: \$f\" }'
+Output is plain text, so it pipes into your shell's tools:
+  gdsh 'ls res://' | grep '/\$'"
 
 drop_banner() { sed '1{/^Godot Engine v/{N;d;};}'; }
+
+case $1 in
+	-h|--help) echo "$help"; exit 0 ;;
+	--version)
+		[[ -f $cli/package.cfg ]] || { echo "gdsh: the CLI isn't installed in $cli" >&2; exit 1; }
+		echo "gdsh-cli $(sed -n 's/^version="\(.*\)"/\1/p' "$cli/package.cfg")"
+		exit 0 ;;
+esac
 
 if [[ $1 == --register ]]; then
 	shift
@@ -30,7 +48,7 @@ if [[ $1 == --register ]]; then
 	rmdir "$empty"
 	exit $status
 fi
-[[ $# -gt 0 && $1 != -h && $1 != --help ]] || { echo "$usage" >&2; exit 1; }
+[[ $# -gt 0 ]] || { echo "$usage" >&2; exit 1; }
 [[ -f $cli/boot.gd ]] || { echo "gdsh: the CLI isn't installed in $cli" >&2; exit 1; }
 
 proj=$PWD

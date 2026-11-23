@@ -4,7 +4,28 @@
 $gdsh_home = if ($env:GDSH_HOME) { $env:GDSH_HOME } else { Join-Path $HOME '.gdsh' }
 $cli = Join-Path $gdsh_home 'cli'
 $registry = Join-Path $gdsh_home 'executables'
-$usage = "Usage: gdsh '<line>' | gdsh -f <file.gdsh> | gdsh --register [<godot>...]"
+$usage = "Usage: gdsh '<line>' | gdsh -f <file.gdsh> | gdsh --register [<godot>...] | gdsh --version | gdsh --help"
+$help = @'
+Usage: gdsh '<line>'                 run a gdsh line in the enclosing Godot project
+       gdsh -f <file.gdsh>           run a gdsh script (starts with #!gdsh)
+       gdsh --register [<godot>...]  record Godot binaries in ~/.gdsh/executables
+       gdsh --version | --help
+
+The line is gdsh syntax, as in the Editor Console, not PowerShell: quote it so your shell
+passes it whole. Blocks use braces:
+  gdsh 'for f in $(ls res://) { echo "file: $f" }'
+Output is plain text, so it pipes into your shell's tools:
+  gdsh 'ls res://' | Select-String '/$'
+'@
+
+if ($args.Count -gt 0 -and $args[0] -in @('-h', '--help')) { $help; exit 0 }
+if ($args.Count -gt 0 -and $args[0] -eq '--version') {
+	$cfg = Join-Path $cli 'package.cfg'
+	if (-not (Test-Path -LiteralPath $cfg)) { [Console]::Error.WriteLine("gdsh: the CLI isn't installed in $cli"); exit 1 }
+	$found = Select-String -LiteralPath $cfg -Pattern '^version="(.*)"' | Select-Object -First 1
+	"gdsh-cli $(if ($found) { $found.Matches[0].Groups[1].Value })"
+	exit 0
+}
 
 # Drops Godot's banner and the blank line after it.
 function Remove-Banner {
@@ -39,7 +60,7 @@ if ($args.Count -gt 0 -and $args[0] -eq '--register') {
 	}
 	exit $status
 }
-if ($args.Count -eq 0 -or $args[0] -in @('-h', '--help')) { [Console]::Error.WriteLine($usage); exit 1 }
+if ($args.Count -eq 0) { [Console]::Error.WriteLine($usage); exit 1 }
 $boot = Join-Path $cli 'boot.gd'
 if (-not (Test-Path -LiteralPath $boot)) { [Console]::Error.WriteLine("gdsh: the CLI isn't installed in $cli"); exit 1 }
 

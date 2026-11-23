@@ -6,6 +6,14 @@ Run [gdsh](https://github.com/brohd11/godot-gdsh) commands from a terminal, head
 gdsh 'ls res://addons'
 gdsh 'namespace build'
 gdsh -f script.gdsh
+gdsh --version
+```
+
+The line is gdsh syntax, the same as in the Editor Console, not bash. Quote it so your shell passes it whole; blocks use braces. Output is plain text, so it pipes into your shell's tools:
+
+```sh
+gdsh 'for f in $(ls res://) { echo "file: $f" }'
+gdsh 'ls res://' | grep '/$'
 ```
 
 ## Install
