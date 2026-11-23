@@ -1,0 +1,17 @@
+# Builds and publishes gdsh-cli.zip on version tags with gdpackage. The tag must match version= in
+# package.cfg; deps are fetched by tag, so they need pushing first. install.sh downloads the zip
+# from releases/latest. A manual run (Actions tab) builds the tag matching version= without publishing.
+name: release
+on:
+  push:
+    tags: ["v*", "[0-9]*"]
+  workflow_dispatch:
+jobs:
+  release:
+    uses: brohd11/godot-gdpackage/.github/workflows/package-release.yml@main
+    with:
+      # Builds and verifies on this Godot; it must run everything the package and its deps use.
+      godot-version: "4.6.3-stable"
+      publish: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: write
