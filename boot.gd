@@ -1,7 +1,8 @@
 extends SceneTree
 ## Entry point of the gdsh CLI, installed unpacked in ~/.gdsh/cli (a relative-path export, so it
 ## runs from outside the project):
-##     godot --headless --path <project> --script ~/.gdsh/cli/boot.gd -- -c '<line>' | -f <file.gdsh>
+##     godot --headless --path <project> --script ~/.gdsh/cli/boot.gd -- [--result DIR] -c '<line>' | -f <file.gdsh>
+## The gdsh binary passes --result so it can show the command's output without Godot's logging.
 
 const Run = preload("res://addons/_lib/gdsh_lib/cli/src/run.gd")
 

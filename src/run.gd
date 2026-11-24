@@ -14,22 +14,26 @@ const _HOST_TAIL = "addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
 const _UTILS_TAIL = "addons/_lib/gdsh_lib/utils/cmd" #! gdp-ignore
 
 const USAGE = \
-"Usage: gdsh '<line>' | gdsh -f <file.gdsh>
-  -c  run a command line (pipes, quoting and variables work)
-  -f  run a .gdsh script"
+"Usage: boot.gd -- [--result DIR] -c '<line>' | -f <file.gdsh>
+  -c        run a command line (pipes, quoting and variables work)
+  -f        run a .gdsh script
+  --result  write the command's stdout/stderr to DIR/stdout and DIR/stderr, apart from Godot's
+            own logging (the gdsh binary passes it)"
 
 
-## args is `-c <line>` or `-f <file>`; returns the exit code.
+## args is `[--result DIR] -c <line>` or `[--result DIR] -f <file>`; returns the exit code.
 static func run(args:PackedStringArray) -> int:
+	var result := ""
+	if args.size() >= 2 and args[0] == "--result":
+		result = args[1]
+		args = args.slice(2)
 	if args.size() != 2 or args[0] not in ["-c", "-f"]:
-		printerr(USAGE)
-		return 1
+		return _emit(result, "", USAGE, 1)
 
 	var root = "res://" if ResourceLoader.exists(PROJECT_HOST) else _bundled_root()
 	var Host = load(root + _HOST_TAIL)
 	if Host == null:
-		printerr("gdsh: no gdsh at " + root + _HOST_TAIL)
-		return 1
+		return _emit(result, "", "gdsh: no gdsh at " + root + _HOST_TAIL, 1)
 	var utils = root + _UTILS_TAIL
 	var dirs = [utils] if DirAccess.dir_exists_absolute(utils) else []
 	# Host resolves the user roots (rebuilt against its gdsh), so a ctx can take its scopes.
@@ -42,13 +46,29 @@ static func run(args:PackedStringArray) -> int:
 	else:
 		await Host.Execute.source_file(args[1], ctx)
 
-	var out:String = Host.Context.plain_text(ctx.stdout)
-	var err:String = Host.Context.plain_text(ctx.stderr)
-	if not out.is_empty():
-		printraw(out if out.ends_with("\n") else out + "\n")
-	if not err.is_empty():
-		printerr(err.rstrip("\n"))
-	return ctx.exit_code
+	return _emit(result, Host.Context.plain_text(ctx.stdout), Host.Context.plain_text(ctx.stderr), ctx.exit_code)
+
+
+## Prints out and err, or with a result dir writes them to its stdout and stderr files (both,
+## even empty: the binary reads a missing file as a failed boot). Returns code.
+static func _emit(result:String, out:String, err:String, code:int) -> int:
+	if not out.is_empty() and not out.ends_with("\n"):
+		out += "\n"
+	if not err.is_empty() and not err.ends_with("\n"):
+		err += "\n"
+	if result.is_empty():
+		printraw(out)
+		if not err.is_empty():
+			printerr(err.rstrip("\n"))
+		return code
+	for pair in [["stdout", out], ["stderr", err]]:
+		var path:String = result.path_join(pair[0])
+		var file = FileAccess.open(path, FileAccess.WRITE)
+		if file == null:
+			printerr("gdsh: can't write %s: %s" % [path, error_string(FileAccess.get_open_error())])
+			return 1
+		file.store_string(pair[1])
+	return code
 
 
 ## The bundled copy's mirror of res:// (e.g. <pkg>/vendor/), from where _BUNDLE was rewritten to.

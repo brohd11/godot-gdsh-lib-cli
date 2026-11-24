@@ -1,11 +1,11 @@
 # gdsh CLI payload
 
-The GDScript half of the [gdsh CLI](https://github.com/brohd11/gdsh): `boot.gd`, `src/run.gd` and the
+The GDScript half of the [gdsh CLI](https://github.com/brohd11/godot-gdsh-cli): `boot.gd`, `src/run.gd` and the
 [gdsh](https://github.com/brohd11/godot-gdsh) copy bundled beside them. Install the CLI from its repo; it
 embeds this package's release and unpacks it to `~/.gdsh/cli` (`$GDSH_HOME/cli`) on first run.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/brohd11/gdsh/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/brohd11/godot-gdsh-cli/main/install.sh | sh
 ```
 
 ## How it runs
