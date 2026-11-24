@@ -74,21 +74,24 @@ jobs:
           set -uo pipefail
           failed=0
           fail() { echo "::error::$*"; failed=1; }
+          ok() { echo "ok: $*"; }
           expect() { # name, expected stdout, expected exit, gdsh args...
             local name=$1 want=$2 code=$3; shift 3
-            local out status
-            out=$("$BIN_DIR/gdsh" "$@" 2>"$RUNNER_TEMP/err"); status=$?
-            [ "$status" = "$code" ] || fail "$name: exit $status, expected $code; stderr: $(cat "$RUNNER_TEMP/err")"
-            [ "$out" = "$want" ] || fail "$name: got [$out], expected [$want]"
+            local out status=0 bad=0
+            # GitHub's bash runs with -e: a bare `out=$(…)` would end the step on the expected exit 1.
+            out=$("$BIN_DIR/gdsh" "$@" 2>"$RUNNER_TEMP/err") || status=$?
+            [ "$status" = "$code" ] || { fail "$name: exit $status, expected $code; stderr: $(cat "$RUNNER_TEMP/err")"; bad=1; }
+            [ "$out" = "$want" ] || { fail "$name: got [$out], expected [$want]"; bad=1; }
+            [ $bad = 1 ] || ok "$name"
           }
 
           sh install.sh --from "$ZIP" --dir "$BIN_DIR" || { echo "::error::install failed"; exit 1; }
-          "$BIN_DIR/gdsh" --register "$GODOT_BIN" || fail "register failed"
+          "$BIN_DIR/gdsh" --register "$GODOT_BIN" && ok "register" || fail "register failed"
           grep "^godot-" "$GDSH_HOME/executables" || fail "nothing registered"
 
           cd "$PROJ"
           expect "version" "gdsh-cli $(sed -n 's/^version="\(.*\)"/\1/p' "$GDSH_HOME/cli/package.cfg")" 0 --version
-          "$BIN_DIR/gdsh" --help | grep -q "gdsh syntax" || fail "help lacks the syntax note"
+          "$BIN_DIR/gdsh" --help | grep -q "gdsh syntax" && ok "help" || fail "help lacks the syntax note"
           expect "echo" "hi" 0 'echo hi'
           expect "pipe" "hi" 0 'echo hi | grep h'
           expect "false" "" 1 'false'
@@ -97,10 +100,10 @@ jobs:
 
           mkdir -p "$RUNNER_TEMP/foreign"
           echo foreign > "$RUNNER_TEMP/foreign/gdsh"
-          sh "$GITHUB_WORKSPACE/install.sh" --from "$ZIP" --dir "$RUNNER_TEMP/foreign" && fail "installed over a foreign wrapper"
+          sh "$GITHUB_WORKSPACE/install.sh" --from "$ZIP" --dir "$RUNNER_TEMP/foreign" && fail "installed over a foreign wrapper" || ok "refused a foreign wrapper"
           sh "$GITHUB_WORKSPACE/install.sh" --uninstall --dir "$BIN_DIR" || fail "uninstall failed"
-          [ ! -e "$BIN_DIR/gdsh" ] && [ ! -e "$GDSH_HOME/cli" ] || fail "uninstall left files"
-          [ -f "$GDSH_HOME/executables" ] || fail "uninstall removed the registry"
+          [ ! -e "$BIN_DIR/gdsh" ] && [ ! -e "$GDSH_HOME/cli" ] && ok "uninstall" || fail "uninstall left files"
+          [ -f "$GDSH_HOME/executables" ] && ok "registry kept" || fail "uninstall removed the registry"
           exit $failed
 
       - name: Install and run (PowerShell)
@@ -109,25 +112,29 @@ jobs:
         run: |
           $failed = $false
           function Fail($msg) { Write-Output "::error::$msg"; $script:failed = $true }
+          function Ok($name) { Write-Output "ok: $name" }
           $gdsh = Join-Path $env:BIN_DIR 'gdsh.cmd'
           # Through gdsh.cmd, as a user's `gdsh` resolves.
           function Expect($name, $want, $code, [string[]]$gdshArgs) {
             $out = (& $gdsh @gdshArgs 2>$null) -join "`n"
-            if ($LASTEXITCODE -ne $code) { Fail "${name}: exit $LASTEXITCODE, expected $code" }
-            if ($out -ne $want) { Fail "${name}: got [$out], expected [$want]" }
+            $status = $LASTEXITCODE
+            $bad = $false
+            if ($status -ne $code) { Fail "${name}: exit $status, expected $code"; $bad = $true }
+            if ($out -ne $want) { Fail "${name}: got [$out], expected [$want]"; $bad = $true }
+            if (-not $bad) { Ok $name }
           }
 
           ./install.ps1 -From $env:ZIP -Dir $env:BIN_DIR
           & $gdsh --register $env:GODOT_BIN
-          if ($LASTEXITCODE -ne 0) { Fail 'register failed' }
+          if ($LASTEXITCODE -ne 0) { Fail 'register failed' } else { Ok 'register' }
           $registry = Get-Content (Join-Path $env:GDSH_HOME 'executables')
           $registry
-          if (-not ($registry -match '_console\.exe$')) { Fail 'the _console.exe sibling was not registered' }
+          if (-not ($registry -match '_console\.exe$')) { Fail 'the _console.exe sibling was not registered' } else { Ok '_console.exe registered' }
 
           Set-Location $env:PROJ
           $cfg = Select-String -LiteralPath (Join-Path $env:GDSH_HOME 'cli/package.cfg') -Pattern '^version="(.*)"'
           Expect 'version' "gdsh-cli $($cfg.Matches[0].Groups[1].Value)" 0 @('--version')
-          if (-not ((& $gdsh --help) -match 'gdsh syntax')) { Fail 'help lacks the syntax note' }
+          if (-not ((& $gdsh --help) -match 'gdsh syntax')) { Fail 'help lacks the syntax note' } else { Ok 'help' }
           Expect 'echo' 'hi' 0 @('echo hi')
           Expect 'pipe' 'hi' 0 @('echo hi | grep h')
           Expect 'false' '' 1 @('false')
@@ -138,8 +145,8 @@ jobs:
           New-Item -ItemType Directory -Path $foreign -Force | Out-Null
           Set-Content -LiteralPath (Join-Path $foreign 'gdsh.cmd') -Value 'foreign'
           pwsh -NoProfile -File "$env:GITHUB_WORKSPACE/install.ps1" -From $env:ZIP -Dir $foreign
-          if ($LASTEXITCODE -eq 0) { Fail 'installed over a foreign wrapper' }
+          if ($LASTEXITCODE -eq 0) { Fail 'installed over a foreign wrapper' } else { Ok 'refused a foreign wrapper' }
           & "$env:GITHUB_WORKSPACE/install.ps1" -Uninstall -Dir $env:BIN_DIR
-          if ((Test-Path $gdsh) -or (Test-Path (Join-Path $env:GDSH_HOME 'cli'))) { Fail 'uninstall left files' }
-          if (-not (Test-Path (Join-Path $env:GDSH_HOME 'executables'))) { Fail 'uninstall removed the registry' }
+          if ((Test-Path $gdsh) -or (Test-Path (Join-Path $env:GDSH_HOME 'cli'))) { Fail 'uninstall left files' } else { Ok 'uninstall' }
+          if (-not (Test-Path (Join-Path $env:GDSH_HOME 'executables'))) { Fail 'uninstall removed the registry' } else { Ok 'registry kept' }
           if ($failed) { exit 1 }
