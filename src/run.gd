@@ -2,7 +2,8 @@ extends RefCounted
 ## Runs a gdsh line headless, for boot.gd. Uses the project's gdsh when it has one, since
 ## unignored plugin cmd/ dirs are built against that copy, else the copy bundled in vendor/.
 ## Nothing preloads gdsh, so only the chosen copy loads.
-## Offers the builtins, utils, enabled plugins' cmd/ and the ~/.gdsh / res://.gdsh roots.
+## Offers the builtins, utils, settings, enabled plugins' cmd/ and the ~/.gdsh / res://.gdsh roots.
+## Sources ~/.gdrc then res://.gdrc first (skipped when GDSH_NORC is set), with $GDSH_HOST = "cli".
 
 ## Kept as written on export, so it always names the project's copy.
 const PROJECT_HOST = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
@@ -12,13 +13,15 @@ const _BUNDLE = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-dependency
 ## Below a gdsh copy's root (res:// or vendor/): its host, and utils beside it.
 const _HOST_TAIL = "addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
 const _UTILS_TAIL = "addons/_lib/gdsh_lib/utils/cmd" #! gdp-ignore
+const _SETTINGS_TAIL = "addons/_lib/gdsh_lib/editor/cmd/settings/settings.gd" #! gdp-ignore
 
 const USAGE = \
 "Usage: boot.gd -- [--result DIR] -c '<line>' | -f <file.gdsh>
   -c        run a command line (pipes, quoting and variables work)
   -f        run a .gdsh script
   --result  write the command's stdout/stderr to DIR/stdout and DIR/stderr, apart from Godot's
-            own logging (the gdsh binary passes it)"
+            own logging (the gdsh binary passes it)
+~/.gdrc and res://.gdrc are sourced first (their output shows too); set GDSH_NORC to skip them."
 
 
 ## args is `[--result DIR] -c <line>` or `[--result DIR] -f <file>`; returns the exit code.
@@ -36,10 +39,16 @@ static func run(args:PackedStringArray) -> int:
 		return _emit(result, "", "gdsh: no gdsh at " + root + _HOST_TAIL, 1)
 	var utils = root + _UTILS_TAIL
 	var dirs = [utils] if DirAccess.dir_exists_absolute(utils) else []
+	var settings = root + _SETTINGS_TAIL
+	var commands = {"settings": settings} if FileAccess.file_exists(settings) else {}
 	# Host resolves the user roots (rebuilt against its gdsh), so a ctx can take its scopes.
-	var host = Host.new({"default_dirs": true, "command_dirs": dirs})
+	var host = Host.new({"default_dirs": true, "command_dirs": dirs, "commands": commands})
 	var ctx = Host.Context.new("gdsh cli")
 	ctx.scopes.merge(host.get_scopes(), true)
+	ctx.variables["$GDSH_HOST"] = "cli"
+	if OS.get_environment("GDSH_NORC").is_empty():
+		for rc in _rc_files():
+			await Host.Execute.source_file(rc, ctx)
 
 	if args[0] == "-c":
 		await Host.Execute.execute_command_multiline(args[1], ctx)
@@ -47,6 +56,18 @@ static func run(args:PackedStringArray) -> int:
 		await Host.Execute.source_file(args[1], ctx)
 
 	return _emit(result, Host.Context.plain_text(ctx.stdout), Host.Context.plain_text(ctx.stderr), ctx.exit_code)
+
+
+## ~/.gdrc then res://.gdrc, those that exist.
+static func _rc_files() -> PackedStringArray:
+	var files := PackedStringArray()
+	var home = OS.get_environment("HOME")
+	if home.is_empty():
+		home = OS.get_environment("USERPROFILE")
+	for path in ["" if home.is_empty() else home.path_join(".gdrc"), "res://.gdrc"]:
+		if not path.is_empty() and FileAccess.file_exists(path):
+			files.append(path)
+	return files
 
 
 ## Prints out and err, or with a result dir writes them to its stdout and stderr files (both,

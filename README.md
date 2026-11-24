@@ -21,10 +21,16 @@ It uses the project's own gdsh when it has one, and otherwise the copy bundled i
 
 - the builtins
 - gdsh-lib-utils
+- `settings` from gdsh-lib-editor (`psetting`, `mainscene`; `esetting` needs the editor)
 - every enabled plugin's `cmd/`
 - the `~/.gdsh` and `res://.gdsh` command roots
 
 Commands that need the editor still load, and fail with their own error when run.
+
+Before the line runs, `~/.gdrc` and then `res://.gdrc` are sourced, as in Editor Console, so their functions and
+aliases are available. Their output and errors show ahead of the command's. `$GDSH_HOST` is `cli` (Editor
+Console sets `editor`), so an rc can skip editor-only lines: `[ "$GDSH_HOST" == "editor" ] && ...`. Set
+`GDSH_NORC=1` to skip the rc files.
 
 ## Releasing
 
