@@ -6,7 +6,8 @@ extends RefCounted
 
 ## Kept as written on export, so it always names the project's copy.
 const PROJECT_HOST = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
-## Only gathers gdsh into vendor/ on export; the copy is found from this file (_bundled_root).
+## Gathers gdsh on export and is rewritten to wherever it landed (relative to this file), so
+## _bundled_root needn't know the vendor dir's name.
 const _BUNDLE = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-dependency
 ## Below a gdsh copy's root (res:// or vendor/): its host, and utils beside it.
 const _HOST_TAIL = "addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
@@ -50,8 +51,10 @@ static func run(args:PackedStringArray) -> int:
 	return ctx.exit_code
 
 
-## The package's vendor/ dir, which mirrors res:// (<pkg>/src/run.gd -> <pkg>/vendor/).
+## The bundled copy's mirror of res:// (e.g. <pkg>/vendor/), from where _BUNDLE was rewritten to.
 static func _bundled_root() -> String:
-	# new(): a static func has no get_script().
-	var pkg = new().get_script().resource_path.get_base_dir().get_base_dir()
-	return pkg.path_join("vendor") + "/"
+	var host = _BUNDLE
+	if host.is_relative_path():
+		# new(): a static func has no get_script().
+		host = new().get_script().resource_path.get_base_dir().path_join(host).simplify_path()
+	return host.trim_suffix(_HOST_TAIL)
