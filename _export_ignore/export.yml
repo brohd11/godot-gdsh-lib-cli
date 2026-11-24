@@ -34,13 +34,9 @@ exports:
     # Unversioned, so releases/latest/download/gdsh-cli.zip always resolves.
     export_name: "gdsh-cli"
     export_folder: addons/_lib/gdsh_lib/cli
-    # utils and settings are listed at runtime, so no reference gathers them.
+    # run.gd gathers utils, test and data via their manifests; settings is listed by hand,
+    # since gdsh-lib-editor's other commands need the editor (and tui).
     other_transfers:
-      -
-        from: "res://addons/_lib/gdsh_lib/utils/cmd"
-        to: "vendor/addons/_lib/gdsh_lib/utils/cmd"
-        recursive: true
-      # Only settings from gdsh-lib-editor: the rest needs the editor (and tui).
       -
         from: "res://addons/_lib/gdsh_lib/editor/cmd/settings"
         to: "vendor/addons/_lib/gdsh_lib/editor/cmd/settings"

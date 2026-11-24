@@ -2,7 +2,7 @@ extends RefCounted
 ## Runs a gdsh line headless, for boot.gd. Uses the project's gdsh when it has one, since
 ## unignored plugin cmd/ dirs are built against that copy, else the copy bundled in vendor/.
 ## Nothing preloads gdsh, so only the chosen copy loads.
-## Offers the builtins, utils, settings, enabled plugins' cmd/ and the ~/.gdsh / res://.gdsh roots.
+## Offers the builtins, utils, test, data, settings, enabled plugins' cmd/ and the ~/.gdsh / res://.gdsh roots.
 ## Sources ~/.gdrc then res://.gdrc first (skipped when GDSH_NORC is set), with $GDSH_HOST = "cli".
 
 ## Kept as written on export, so it always names the project's copy.
@@ -10,9 +10,15 @@ const PROJECT_HOST = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
 ## Gathers gdsh on export and is rewritten to wherever it landed (relative to this file), so
 ## _bundled_root needn't know the vendor dir's name.
 const _BUNDLE = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-dependency
-## Below a gdsh copy's root (res:// or vendor/): its host, and utils beside it.
+## Gather each package on export (its manifest preloads every command); strings, so nothing loads.
+const _UTILS_BUNDLE = "res://addons/_lib/gdsh_lib/utils/cmd/manifest.gd" #! gdp-dependency
+const _TEST_BUNDLE = "res://addons/_lib/gdsh_lib/test/cmd/manifest.gd" #! gdp-dependency
+const _DATA_BUNDLE = "res://addons/_lib/gdsh_lib/data/cmd/manifest.gd" #! gdp-dependency
+## Below a gdsh copy's root (res:// or vendor/): its host, and the gdsh_lib packages beside it.
 const _HOST_TAIL = "addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
 const _UTILS_TAIL = "addons/_lib/gdsh_lib/utils/cmd" #! gdp-ignore
+const _TEST_TAIL = "addons/_lib/gdsh_lib/test/cmd" #! gdp-ignore
+const _DATA_TAIL = "addons/_lib/gdsh_lib/data/cmd" #! gdp-ignore
 const _SETTINGS_TAIL = "addons/_lib/gdsh_lib/editor/cmd/settings/settings.gd" #! gdp-ignore
 
 const USAGE = \
@@ -37,8 +43,10 @@ static func run(args:PackedStringArray) -> int:
 	var Host = load(root + _HOST_TAIL)
 	if Host == null:
 		return _emit(result, "", "gdsh: no gdsh at " + root + _HOST_TAIL, 1)
-	var utils = root + _UTILS_TAIL
-	var dirs = [utils] if DirAccess.dir_exists_absolute(utils) else []
+	var dirs = []
+	for tail in [_UTILS_TAIL, _TEST_TAIL, _DATA_TAIL]:
+		if DirAccess.dir_exists_absolute(root + tail):
+			dirs.append(root + tail)
 	var settings = root + _SETTINGS_TAIL
 	var commands = {"settings": settings} if FileAccess.file_exists(settings) else {}
 	# Host resolves the user roots (rebuilt against its gdsh), so a ctx can take its scopes.

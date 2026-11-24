@@ -21,6 +21,8 @@ It uses the project's own gdsh when it has one, and otherwise the copy bundled i
 
 - the builtins
 - gdsh-lib-utils
+- gdsh-lib-test (`test <package>/...` runs a package's suites)
+- gdsh-lib-data (`data to_json|to_yaml|to_bin` converts data files)
 - `settings` from gdsh-lib-editor (`psetting`, `mainscene`; `esetting` needs the editor)
 - every enabled plugin's `cmd/`
 - the `~/.gdsh` and `res://.gdsh` command roots
