@@ -31,7 +31,7 @@ Commands that need the editor still load, and fail with their own error when run
 
 Before the line runs, `~/.gdrc` and then `res://.gdrc` are sourced, as in Editor Console, so their functions and
 aliases are available. Their output and errors show ahead of the command's. `$GDSH_HOST` is `cli` (Editor
-Console sets `editor`), so an rc can skip editor-only lines: `[ "$GDSH_HOST" == "editor" ] && ...`. Set
+Console sets `editor_console`, MCP requests `mcp`), so an rc can skip editor-only lines: `[ "$GDSH_HOST" == "editor_console" ] && ...`. Set
 `GDSH_NORC=1` to skip the rc files.
 
 ## Releasing
