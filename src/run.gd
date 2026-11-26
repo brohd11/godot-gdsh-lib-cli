@@ -1,11 +1,12 @@
 extends RefCounted
-## Runs a gdsh line headless, for boot.gd. Uses the project's gdsh when it has one, since
-## unignored plugin cmd/ dirs are built against that copy, else the copy bundled in vendor/.
+## Runs a gdsh line headless, for boot.gd, on the gdsh bundled in vendor/: its packages were
+## exported with it, so they never meet a project's older gdsh. Project commands are rebuilt
+## against it. GDSH_PROJECT uses the project's gdsh and gdsh_lib packages (gdsh development).
 ## Nothing preloads gdsh, so only the chosen copy loads.
 ## Offers the builtins, utils, test, data, settings, enabled plugins' cmd/ and the ~/.gdsh / res://.gdsh roots.
 ## Sources ~/.gdrc then res://.gdrc first (skipped when GDSH_NORC is set), with $GDSH_HOST = "cli".
 
-## Kept as written on export, so it always names the project's copy.
+## Kept as written on export, so it always names the project's copy (used with GDSH_PROJECT).
 const PROJECT_HOST = "res://addons/_lib/gdsh/src/core/host.gd" #! gdp-ignore
 ## Gathers gdsh on export and is rewritten to wherever it landed (relative to this file), so
 ## _bundled_root needn't know the vendor dir's name.
@@ -27,7 +28,8 @@ const USAGE = \
   -f        run a .gdsh script
   --result  write the command's stdout/stderr to DIR/stdout and DIR/stderr, apart from Godot's
             own logging (the gdsh binary passes it)
-~/.gdrc and res://.gdrc are sourced first (their output shows too); set GDSH_NORC to skip them."
+~/.gdrc and res://.gdrc are sourced first (their output shows too); set GDSH_NORC to skip them.
+Runs on the bundled gdsh; set GDSH_PROJECT to use the project's own copy instead."
 
 
 ## args is `[--result DIR] -c <line>` or `[--result DIR] -f <file>`; returns the exit code.
@@ -39,7 +41,11 @@ static func run(args:PackedStringArray) -> int:
 	if args.size() != 2 or args[0] not in ["-c", "-f"]:
 		return _emit(result, "", USAGE, 1)
 
-	var root = "res://" if ResourceLoader.exists(PROJECT_HOST) else _bundled_root()
+	var root = _bundled_root()
+	if not OS.get_environment("GDSH_PROJECT").is_empty():
+		if not ResourceLoader.exists(PROJECT_HOST):
+			return _emit(result, "", "gdsh: GDSH_PROJECT is set but the project has no gdsh at " + PROJECT_HOST, 1)
+		root = "res://"
 	var Host = load(root + _HOST_TAIL)
 	if Host == null:
 		return _emit(result, "", "gdsh: no gdsh at " + root + _HOST_TAIL, 1)
