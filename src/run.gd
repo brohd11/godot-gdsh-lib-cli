@@ -1,7 +1,8 @@
 extends RefCounted
 ## Runs a gdsh line headless, for boot.gd, on the gdsh bundled in vendor/: its packages were
-## exported with it, so they never meet a project's older gdsh. Project commands are rebuilt
-## against it. GDSH_PROJECT uses the project's gdsh and gdsh_lib packages (gdsh development).
+## exported with it, so they never meet a project's older gdsh. Project commands, plugin cmd/
+## included (.gdignore'd or not), are rebuilt from disk against it, so the project needs no gdsh.
+## GDSH_PROJECT uses the project's gdsh and gdsh_lib packages (gdsh development).
 ## Nothing preloads gdsh, so only the chosen copy loads.
 ## Offers the builtins, utils, test, data, settings, enabled plugins' cmd/ and the ~/.gdsh / res://.gdsh roots.
 ## Sources ~/.gdrc then res://.gdrc first (skipped when GDSH_NORC is set), with $GDSH_HOST = "cli".
